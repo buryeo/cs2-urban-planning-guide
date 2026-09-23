@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#173942">
+  <title>River Delta · 城区规划向导原型</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="masthead">
+      <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+      <div class="brand-copy">
+        <div class="eyebrow">CS2 / PLANNING LAB · 交互样机 01</div>
+        <h1>让城市顺着地形生长</h1>
+        <p>从一张空白的 River Delta 示意图开始，先决定城市里的“点”，再看道路怎样把它们连起来。</p>
+      </div>
+      <div class="header-actions">
+        <span class="prototype-badge"><span class="badge-dot"></span> 本地原型 · 非游戏 Mod</span>
+        <button class="button button-outline" id="resetButton" type="button">恢复初始方案</button>
+        <button class="button button-dark" id="exportButton" type="button">导出规划 JSON</button>
+      </div>
+    </header>
+
+    <nav class="stage-nav" aria-label="规划步骤" id="stageNav">
+      <button type="button" data-stage="0"><span class="stage-number">01</span><span><strong>读懂场地</strong><small>水系 · 等高线 · 风向</small></span></button>
+      <button type="button" data-stage="1"><span class="stage-number">02</span><span><strong>摆放城区节点</strong><small>拖动 · 缩放 · 增删</small></span></button>
+      <button type="button" data-stage="2"><span class="stage-number">03</span><span><strong>生成片区</strong><small>边界 · 规模 · 调整</small></span></button>
+      <button type="button" data-stage="3"><span class="stage-number">04</span><span><strong>安排主通道</strong><small>跨河 · 连接 · 锁定</small></span></button>
+      <button type="button" data-stage="4"><span class="stage-number">05</span><span><strong>预览街区道路</strong><small>方向 · 密度 · 变化</small></span></button>
+    </nav>
+
+    <main class="workspace" id="workspace">
+      <section class="map-card" aria-labelledby="mapHeading">
+        <div class="map-card-header">
+          <div>
+            <div class="section-kicker">测试场景 / 01</div>
+            <h2 id="mapHeading">River Delta <span>河流三角洲</span></h2>
+          </div>
+          <div class="map-header-actions"><div class="map-meta"><span class="meta-icon">↗</span><span>代表性地形示意<br><small>非游戏实测高度图</small></span></div><button class="mini-button canvas-button" id="canvasSizeButton" type="button" aria-pressed="false">⤢ 大画布</button><button class="mini-button canvas-button" id="inspectorToggle" type="button" aria-pressed="false" hidden>隐藏编辑面板</button></div>
+        </div>
+
+        <div class="map-frame">
+          <svg id="map" viewBox="0 0 1100 700" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="河流三角洲地形与可编辑城区规划图">
+            <defs>
+              <linearGradient id="landGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbfcf9"/><stop offset="1" stop-color="#f5f8f4"/></linearGradient>
+              <linearGradient id="waterGradient" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#a8cdeb"/><stop offset="1" stop-color="#c4def0"/></linearGradient>
+              <marker id="windArrowHead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M 0 0 L 8 4 L 0 8 Z" fill="#b46c50"/></marker>
+              <clipPath id="planClip"><rect x="88" y="66" width="906" height="560" rx="26"/></clipPath>
+              <mask id="landMask" maskUnits="userSpaceOnUse"><rect width="1100" height="700" fill="white"/><g id="maskWaterLayer" fill="black"/></mask>
+            </defs>
+            <rect width="1100" height="700" fill="url(#landGradient)"/>
+            <g id="baseParcelLayer" pointer-events="none"></g>
+            <path d="M0 0H337C305 93 271 145 215 203S69 300 0 330Z" fill="#e5eddb" opacity=".46"/>
+            <path d="M0 0H181C159 83 143 129 101 177S40 233 0 247Z" fill="#d8e5ce" opacity=".43"/>
+            <g class="contours" fill="none" stroke="#91b095" stroke-width="1.25" opacity=".75">
+              <path d="M-60 45C35 58 107 28 173 18S276 10 324 -18"/>
+              <path d="M-45 93C62 100 124 64 193 60S280 52 349 12"/>
+              <path d="M-45 146C59 161 131 114 202 108S301 92 369 52"/>
+              <path d="M-40 201C70 216 149 170 221 155S302 136 387 101"/>
+              <path d="M-35 264C75 271 169 226 246 203S342 177 409 148"/>
+              <path d="M-25 322C92 329 184 277 273 252S362 215 431 191"/>
+              <path d="M-20 379C97 380 192 333 283 309S374 271 448 240"/>
+              <path d="M806 -20C835 84 862 132 953 166S1043 207 1130 205"/>
+              <path d="M859 -20C875 55 921 111 983 130S1070 151 1130 155"/>
+              <path d="M-40 419C107 419 208 369 300 351S397 313 466 286"/>
+              <path d="M41 15C125 34 208 0 286 -14"/>
+            </g>
+            <g class="elevation-labels" pointer-events="none"><text x="118" y="129">高程层 Ⅲ</text><text x="210" y="222">高程层 Ⅱ</text><text x="329" y="321">高程层 Ⅰ</text></g>
+            <path d="M-12 306C95 305 161 307 240 295S334 290 383 287" fill="none" stroke="#a9a690" stroke-width="18" opacity=".34"/>
+            <path d="M-12 306C95 305 161 307 240 295S334 290 383 287" fill="none" stroke="#efe9d3" stroke-width="9"/>
+            <path d="M-12 306C95 305 161 307 240 295S334 290 383 287" fill="none" stroke="#9d947b" stroke-width="1.5" stroke-dasharray="8 7"/>
+            <text x="42" y="278" class="map-text map-text-dark">既有外部道路入口</text>
+            <g id="streetLayer" clip-path="url(#planClip)"></g>
+            <g id="waterGeometry" pointer-events="none"></g>
+            <g id="subdistrictLayer" mask="url(#landMask)" pointer-events="none"></g>
+            <g id="districtLayer" mask="url(#landMask)"></g>
+            <g id="shippingLayer" pointer-events="none"><path class="shipping-channel" d="M 1040 600 L 650 468"/><g id="shippingAccess"></g><text x="820" y="558" class="shipping-label">候选航道 · 待核实</text></g>
+            <rect id="planBoundary" x="88" y="66" width="906" height="560" rx="26" fill="none" stroke="#536b60" stroke-width="2" stroke-dasharray="11 8" opacity=".72" pointer-events="none"/>
+            <text x="107" y="92" class="map-text">规划范围</text>
+            <g id="corridorLayer"></g>
+            <g id="nodeLayer"></g>
+            <g id="windOverlay" pointer-events="none"></g>
+            <g class="map-labels" pointer-events="none">
+              <text x="718" y="70" class="map-text">缓坡平地</text>
+              <text x="135" y="63" class="map-text">山地边缘</text>
+              <text x="687" y="688" class="map-text map-text-blue">河口与三角洲</text>
+              <text x="1026" y="347" class="sea-label" transform="rotate(90 1026 347)">S E A</text>
+            </g>
+          </svg>
+          <div class="map-hint" id="mapHint">拖动圆圈来调整位置，拖动圆圈右下角的小点来改变影响范围。</div>
+        </div>
+
+        <div class="map-footer">
+          <div class="legend"><span><i class="legend-dot hill"></i> 示意等高线</span><span><i class="legend-dot water"></i> 河道 / 水域</span><span><i class="legend-line channel"></i> 候选航道</span><span><i class="legend-line road"></i> 重要出行走廊</span><span><i class="legend-line street"></i> 街区道路</span></div>
+          <span class="scale-caption">地图为概念比例 · 不用于工程测量</span>
+        </div>
+      </section>
+
+      <aside class="inspector" aria-labelledby="inspectorHeading">
+        <div class="inspector-top"><span class="section-kicker">交互 / <span id="stageIndex">02</span></span><span class="live-pill">● 可编辑</span></div>
+        <h2 id="inspectorHeading">摆放城区节点</h2>
+        <p id="stageIntro" class="inspector-intro"></p>
+        <div class="step-progress"><span id="progressFill"></span></div>
+
+        <section id="selectionPanel" class="selection-panel"></section>
+        <section id="stepControls" class="step-controls"></section>
+        <section class="learn-card"><div class="learn-label">规划小知识 <span>↗</span></div><p id="learningText"></p></section>
+        <div class="inspector-nav"><button type="button" class="button button-outline" id="backButton">上一步</button><button type="button" class="button button-primary" id="nextButton">下一步 →</button></div>
+      </aside>
+    </main>
+
+    <footer class="page-footer"><span>URBAN PLANNING GUIDE · RIVER DELTA STUDY</span><span>先看关系，再画道路。</span></footer>
+  </div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
