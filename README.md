@@ -11,12 +11,14 @@
 ## 设想中的体验
 
 1. **选择规划范围**：在一张空白城区地图上圈定区域，查看坡度、水岸和外部道路入口。
-2. **安排功能片区与中心**：接受推荐布局，或拖动边界、增删片区、移动中心。这些是规划草图，尚非游戏里的正式分区。
+2. **安排规划片区与中心**：接受推荐布局，或拖动边界、增删片区、移动中心。每片可以有一个主导角色，同时混合居住、服务和公共空间；这些只是规划草图，尚非游戏里的正式分区。
 3. **安排主要连接**：预览中心之间及通往地图入口的主通道，调整走线和过河位置。
 4. **生成街区道路**：根据片区和地形生成不同方向与密度的街道，再调整街块大小和局部形态。
 5. **检查并落地**：查看断头路、绕行、坡度和道路衔接提示，确认后才在游戏里铺路。
 
 在任一步都可以返回修改。重新生成时保留玩家锁定的片区、中心和走线，其他部分随之更新。教学提示放在操作旁边，说明「为什么推荐这里」以及「这次修改带来了什么变化」。
+
+这里的**规划片区**是讨论地形、活动中心、公共空间与道路关系的范围，不是只能放一种建筑的「功能区」。**街块**则是后续道路围出的更小空间；游戏中的具体居住、商业等分区要到更细尺度再决定。这样既保留片区特色，也能让日常目的地靠近居民。
 
 ## 首次验证范围
 
@@ -41,6 +43,8 @@
 
 - [《都市：天际线 2》官方地图介绍](https://www.paradoxinteractive.com/games/cities-skylines-ii/features/maps-themes)：River Delta 的河流、缓坡与平地特征。
 - [ITDP TOD Standard](https://tod.itdp.org/tod-standard/tod-standard-framework.html)：步行、连通、公共交通与混合使用等规划原则。
+- [自然资源部《关于加强国土空间详细规划工作的通知》](https://www.cgs.gov.cn/zcwj/202304/t20230415_820770.html)：规划单元承接功能布局、空间结构及设施等要求。
+- [联合国人居署《可持续社区规划五原则》](https://unhabitat.org/sites/default/files/documents/2019-05/five_principles_of_sustainable_neighborhood_planning.pdf)：混合用地可以落实在城市、社区、街块与建筑等多个尺度。
 - [Interactive Procedural Street Modeling](https://peterwonka.net/Publications/pdfs/2008.SG.Chen.InteractiveProceduralStreetModeling.pdf)：用方向场引导不同街道形态的研究。
 
 ---
