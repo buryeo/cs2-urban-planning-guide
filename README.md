@@ -1,2 +1,48 @@
-# cs2-urban-planning-guide
-A beginner-friendly, step-by-step urban planning guide concept for Cities: Skylines II. Design and feedback stage; no installable mod yet.
+# CS2 Urban Planning Guide / 城区规划向导
+
+一个面向《都市：天际线 2》新手的 Mod 构想：通过可返回、可修改的分步向导，在空白城区规划出顺应地形、有道路层次和街区变化的路网，并在操作中学习城市规划。
+
+> **当前状态：概念与社区反馈阶段。没有可下载、可安装的 Mod，也没有游戏内实现。** 我们会根据反馈决定首个可运行原型的范围。
+
+## 想解决的问题
+
+游戏自带道路工具足够灵活，但新玩家面对一片空地时，常常只会重复方格或完全对称的布局。这个项目希望给出一份可编辑的初稿，解释每个规划建议的理由，并让玩家看到修改对连通性、街区尺度和地形适应性的影响。
+
+## 设想中的体验
+
+1. **选择规划范围**：在一张空白城区地图上圈定区域，查看坡度、水岸和外部道路入口。
+2. **安排功能片区与中心**：接受推荐布局，或拖动边界、增删片区、移动中心。这些是规划草图，尚非游戏里的正式分区。
+3. **安排主要连接**：预览中心之间及通往地图入口的主通道，调整走线和过河位置。
+4. **生成街区道路**：根据片区和地形生成不同方向与密度的街道，再调整街块大小和局部形态。
+5. **检查并落地**：查看断头路、绕行、坡度和道路衔接提示，确认后才在游戏里铺路。
+
+在任一步都可以返回修改。重新生成时保留玩家锁定的片区、中心和走线，其他部分随之更新。教学提示放在操作旁边，说明「为什么推荐这里」以及「这次修改带来了什么变化」。
+
+## 首次验证范围
+
+- 目标场景：游戏自带 **River Delta** 地图中的一片空白城区。
+- 第一轮验证：片区建议、中心位置、主通道预览、街区道路变化，以及返回上一步后的预览更新。
+- 暂不承诺：对已建成城区自动改造、自动拆迁、交通仿真结果或任何发布日期。
+
+详细设计见 [设计稿](docs/superpowers/specs/2026-09-23-cs2-urban-planning-guide-design.md)。
+
+## 邀请反馈
+
+欢迎通过 [Issues](https://github.com/buryeo/cs2-urban-planning-guide/issues/new/choose) 分享意见。尤其想知道：
+
+- 对新手而言，哪一步最需要引导？
+- 你希望先调整功能片区，还是先画一条重要的道路？
+- 哪些提示能帮你学会规划，哪些会打断游戏？
+- 你愿意用哪种地图或空白地块测试首个原型？
+
+请把这是**设计提案**来评议，不要将其当成现有 Mod 的故障反馈。
+
+## 参考依据
+
+- [《都市：天际线 2》官方地图介绍](https://www.paradoxinteractive.com/games/cities-skylines-ii/features/maps-themes)：River Delta 的河流、缓坡与平地特征。
+- [ITDP TOD Standard](https://tod.itdp.org/tod-standard/tod-standard-framework.html)：步行、连通、公共交通与混合使用等规划原则。
+- [Interactive Procedural Street Modeling](https://peterwonka.net/Publications/pdfs/2008.SG.Chen.InteractiveProceduralStreetModeling.pdf)：用方向场引导不同街道形态的研究。
+
+---
+
+**English summary:** A proposed beginner-friendly, step-by-step planning guide for *Cities: Skylines II*. It would suggest editable districts, centers, major connections, and local street layouts based on terrain, while teaching planning concepts through immediate feedback. This repository is collecting feedback; no playable mod exists yet.
