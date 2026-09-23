@@ -19,11 +19,11 @@
 
 教学反馈解释地形对建设用地与跨河连接的影响；这里不做「美感分数」。
 
-### 2. 安排功能片区与中心
+### 2. 安排规划片区与中心
 
-向导提出一套可编辑的功能片区草图与若干中心，至少区分一个主要活动中心和若干次中心。中心数量按区域大小和可建设土地调整，不固定套用黄金比例或斐波那契数列。候选位置综合考虑坡度、入口可达性、片区间距离与水岸空间。
+向导提出一套可编辑的规划片区草图与若干中心，至少区分一个主要活动中心和若干次中心。每片区可以有主导角色，如滨水休闲、居住与日常服务或交通集散，但不限定为单一用途。中心数量按区域大小和可建设土地调整，不固定套用黄金比例或斐波那契数列。候选位置综合考虑坡度、入口可达性、片区间距离与水岸空间。
 
-玩家可以拖拽片区边界、增删片区、移动或锁定中心。功能片区是规划意图，不等同于游戏已经落实的分区；实际街块边界要在道路骨架之后生成。系统用简短说明解释中心位置与功能混合的理由。
+玩家可以拖拽片区边界、增删片区、移动或锁定中心。规划片区是讨论空间结构、中心和公共空间的草图，不等同于游戏已经落实的用地分区；实际街块边界要在道路骨架之后生成。片区与道路相互影响，后续修改主要连接时应同步更新片区预览，而非把第二步边界当成不可变的硬线。系统用简短说明解释中心位置与功能混合的理由。
 
 ### 3. 安排主要连接
 
@@ -60,7 +60,7 @@
 
 ## 待社区反馈的选择
 
-1. 新手更希望从功能片区开始，还是从一条重要的出入道路开始？
+1. 新手更希望从规划片区开始，还是从一条重要的出入道路开始？
 2. 提示以短句常驻、点击展开，还是通过可跳过的教学任务呈现？
 3. 第一版最需要哪一种可编辑对象：片区边界、中心、主路线，还是街区密度？
 
@@ -69,4 +69,6 @@
 - [Paradox Interactive：Maps & Themes](https://www.paradoxinteractive.com/games/cities-skylines-ii/features/maps-themes)
 - [Paradox Interactive：Road Tools](https://www.paradoxinteractive.com/games/cities-skylines-ii/features/road-tools)
 - [ITDP：TOD Standard Framework](https://tod.itdp.org/tod-standard/tod-standard-framework.html)
+- [自然资源部：关于加强国土空间详细规划工作的通知](https://www.cgs.gov.cn/zcwj/202304/t20230415_820770.html)
+- [联合国人居署：Five Principles of Sustainable Neighbourhood Planning](https://unhabitat.org/sites/default/files/documents/2019-05/five_principles_of_sustainable_neighborhood_planning.pdf)
 - [Chen 等：Interactive Procedural Street Modeling](https://peterwonka.net/Publications/pdfs/2008.SG.Chen.InteractiveProceduralStreetModeling.pdf)
