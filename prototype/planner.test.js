@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   makeDefaultNodes,
   moveNode,
+  resizeNode,
   generateCorridors,
   makeStreetSegments,
   getNodeAdvisories,
@@ -41,6 +42,14 @@ test('dragging a node changes a copy and keeps it inside the planning area', () 
     [moved.find((node) => node.id === 'cbd').x, moved.find((node) => node.id === 'cbd').y],
     [110, 620],
   );
+});
+
+test('a node can shrink to radius 16 but not below it', () => {
+  const nodes = makeDefaultNodes();
+  const small = resizeNode(nodes, 'cbd', 16);
+  assert.equal(small.find((node) => node.id === 'cbd').radius, 16);
+  assert.equal(resizeNode(small, 'cbd', 5).find((node) => node.id === 'cbd').radius, 16);
+  assert.equal(nodes.find((node) => node.id === 'cbd').radius, 56);
 });
 
 test('a cross-river main connection uses a marked bridge', () => {

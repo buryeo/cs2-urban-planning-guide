@@ -1,0 +1,6 @@
+# Downloaded third-party terrain and local comparison renders.
+prototype/local-samples/
+
+# Python test/build caches.
+__pycache__/
+*.pyc

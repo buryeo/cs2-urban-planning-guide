@@ -43,3 +43,20 @@ test('large districts split into smaller land planning areas', () => {
     assert.ok(subarea.points.every((point) => polygonContains(parent.points, point)));
   }
 });
+
+test('a noncircular node clips its schematic district along its selected axes', () => {
+  const base = { id: 'only', type: 'park', x: 500, y: 350, radius: 40 };
+  const wide = makeDistricts([{ ...base, shape: 'wide' }])[0];
+  const tall = makeDistricts([{ ...base, shape: 'tall' }])[0];
+  assert.ok(polygonContains(wide.points, { x: 560, y: 350 }));
+  assert.ok(!polygonContains(wide.points, { x: 500, y: 410 }));
+  assert.ok(!polygonContains(tall.points, { x: 560, y: 350 }));
+  assert.ok(polygonContains(tall.points, { x: 500, y: 410 }));
+});
+
+test('rotating an oval turns its schematic district diagonally', () => {
+  const node = { id: 'oval', type: 'park', x: 500, y: 350, radius: 40, shape: 'wide', angle: 45 };
+  const district = makeDistricts([node])[0];
+  assert.ok(polygonContains(district.points, { x: 545, y: 395 }));
+  assert.ok(!polygonContains(district.points, { x: 545, y: 305 }));
+});

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#173942">
   <title>River Delta · 城区规划向导原型</title>
-  <link rel="stylesheet" href="./styles.css">
+  <link rel="stylesheet" href="./styles.css?v=13">
 </head>
 <body>
   <div class="app-shell">
@@ -14,7 +14,7 @@
       <div class="brand-copy">
         <div class="eyebrow">CS2 / PLANNING LAB · 交互样机 01</div>
         <h1>让城市顺着地形生长</h1>
-        <p>从一张空白的 River Delta 示意图开始，先决定城市里的“点”，再看道路怎样把它们连起来。</p>
+        <p id="introCopy">从一张空白的 River Delta 示意图开始，先决定城市里的“点”，再看道路怎样把它们连起来。</p>
       </div>
       <div class="header-actions">
         <span class="prototype-badge"><span class="badge-dot"></span> 本地原型 · 非游戏 Mod</span>
@@ -27,7 +27,7 @@
       <button type="button" data-stage="0"><span class="stage-number">01</span><span><strong>读懂场地</strong><small>水系 · 等高线 · 风向</small></span></button>
       <button type="button" data-stage="1"><span class="stage-number">02</span><span><strong>摆放城区节点</strong><small>拖动 · 缩放 · 增删</small></span></button>
       <button type="button" data-stage="2"><span class="stage-number">03</span><span><strong>生成片区</strong><small>边界 · 规模 · 调整</small></span></button>
-      <button type="button" data-stage="3"><span class="stage-number">04</span><span><strong>安排主通道</strong><small>跨河 · 连接 · 锁定</small></span></button>
+      <button type="button" data-stage="3"><span class="stage-number">04</span><span><strong>安排主通道</strong><small>选线 · 必经点 · 柔化</small></span></button>
       <button type="button" data-stage="4"><span class="stage-number">05</span><span><strong>预览街区道路</strong><small>方向 · 密度 · 变化</small></span></button>
     </nav>
 
@@ -38,7 +38,7 @@
             <div class="section-kicker">测试场景 / 01</div>
             <h2 id="mapHeading">River Delta <span>河流三角洲</span></h2>
           </div>
-          <div class="map-header-actions"><div class="map-meta"><span class="meta-icon">↗</span><span>代表性地形示意<br><small>非游戏实测高度图</small></span></div><button class="mini-button canvas-button" id="canvasSizeButton" type="button" aria-pressed="false">⤢ 大画布</button><button class="mini-button canvas-button" id="inspectorToggle" type="button" aria-pressed="false" hidden>隐藏编辑面板</button></div>
+          <div class="map-header-actions"><div class="map-meta"><span class="meta-icon">↗</span><span id="mapMeta">代表性地形示意<br><small>非游戏实测高度图</small></span></div><label class="mini-button canvas-button import-button" for="heightmapFile" id="heightmapImportLabel">导入高程图</label><input id="heightmapFile" type="file" accept="image/png,.png" hidden><button class="mini-button canvas-button" id="heightmapToggle" type="button" hidden>查看高程图</button><button class="mini-button canvas-button" id="terrainColorToggle" type="button" hidden>查看原始灰度</button><button class="mini-button canvas-button" id="canvasSizeButton" type="button" aria-pressed="false">⤢ 大画布</button><button class="mini-button canvas-button" id="inspectorToggle" type="button" aria-pressed="false" hidden>隐藏编辑面板</button></div>
         </div>
 
         <div class="map-frame">
@@ -49,8 +49,10 @@
               <marker id="windArrowHead" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M 0 0 L 8 4 L 0 8 Z" fill="#b46c50"/></marker>
               <clipPath id="planClip"><rect x="88" y="66" width="906" height="560" rx="26"/></clipPath>
               <mask id="landMask" maskUnits="userSpaceOnUse"><rect width="1100" height="700" fill="white"/><g id="maskWaterLayer" fill="black"/></mask>
+              <mask id="terrainLandMask" x="200" y="0" width="700" height="700" maskUnits="userSpaceOnUse" maskContentUnits="userSpaceOnUse" mask-type="alpha"><image id="terrainLandMaskImage" x="200" y="0" width="700" height="700"/></mask>
             </defs>
             <rect width="1100" height="700" fill="url(#landGradient)"/>
+            <g id="heightmapLayer" pointer-events="none"></g>
             <g id="baseParcelLayer" pointer-events="none"></g>
             <path d="M0 0H337C305 93 271 145 215 203S69 300 0 330Z" fill="#e5eddb" opacity=".46"/>
             <path d="M0 0H181C159 83 143 129 101 177S40 233 0 247Z" fill="#d8e5ce" opacity=".43"/>
@@ -76,12 +78,13 @@
             <g id="waterGeometry" pointer-events="none"></g>
             <g id="subdistrictLayer" mask="url(#landMask)" pointer-events="none"></g>
             <g id="districtLayer" mask="url(#landMask)"></g>
+            <g id="districtLabelLayer" pointer-events="none"></g>
             <g id="shippingLayer" pointer-events="none"><path class="shipping-channel" d="M 1040 600 L 650 468"/><g id="shippingAccess"></g><text x="820" y="558" class="shipping-label">候选航道 · 待核实</text></g>
             <rect id="planBoundary" x="88" y="66" width="906" height="560" rx="26" fill="none" stroke="#536b60" stroke-width="2" stroke-dasharray="11 8" opacity=".72" pointer-events="none"/>
-            <text x="107" y="92" class="map-text">规划范围</text>
+            <text id="planningBoundaryLabel" x="107" y="92" class="map-text">规划范围</text>
             <g id="corridorLayer"></g>
             <g id="nodeLayer"></g>
-            <g id="windOverlay" pointer-events="none"></g>
+            <g id="windOverlay"></g>
             <g class="map-labels" pointer-events="none">
               <text x="718" y="70" class="map-text">缓坡平地</text>
               <text x="135" y="63" class="map-text">山地边缘</text>
@@ -89,12 +92,12 @@
               <text x="1026" y="347" class="sea-label" transform="rotate(90 1026 347)">S E A</text>
             </g>
           </svg>
-          <div class="map-hint" id="mapHint">拖动圆圈来调整位置，拖动圆圈右下角的小点来改变影响范围。</div>
+          <div class="map-hint" id="mapHint">拖动节点调整位置，在右侧更换形状，拖动右下角的小点改变影响范围。</div>
         </div>
 
         <div class="map-footer">
           <div class="legend"><span><i class="legend-dot hill"></i> 示意等高线</span><span><i class="legend-dot water"></i> 河道 / 水域</span><span><i class="legend-line channel"></i> 候选航道</span><span><i class="legend-line road"></i> 重要出行走廊</span><span><i class="legend-line street"></i> 街区道路</span></div>
-          <span class="scale-caption">地图为概念比例 · 不用于工程测量</span>
+          <span class="scale-caption" id="heightmapStatus" role="status">地图为概念比例 · 不用于工程测量</span><a id="heightmapAttribution" href="https://steamcommunity.com/sharedfiles/filedetails/?id=3467192129" target="_blank" rel="noopener noreferrer" hidden>Purerefu 作者 treezen · 来源</a><a id="terrainColorPreview" href="./local-samples/san-francisco-bay-terrain-preview.png" target="_blank" rel="noopener noreferrer" hidden>查看旧金山湾设色地形</a>
         </div>
       </section>
 
@@ -113,6 +116,6 @@
 
     <footer class="page-footer"><span>URBAN PLANNING GUIDE · RIVER DELTA STUDY</span><span>先看关系，再画道路。</span></footer>
   </div>
-  <script type="module" src="./app.js"></script>
+  <script type="module" src="./app.js?v=20"></script>
 </body>
 </html>

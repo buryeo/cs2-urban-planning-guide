@@ -1,3 +1,5 @@
+import { getNodeShape, rotateOffset } from './node-shapes.js';
+
 const DISTRICT_BOUNDS = Object.freeze({ left: 80, right: 1010, top: 50, bottom: 650 });
 
 function clipHalfPlane(polygon, nx, ny, threshold) {
@@ -35,6 +37,22 @@ export function makeDistricts(nodes) {
       const threshold = other.x ** 2 + other.y ** 2 - node.x ** 2 - node.y ** 2 + ownWeight - otherWeight;
       polygon = clipHalfPlane(polygon, nx, ny, threshold);
       if (polygon.length === 0) break;
+    }
+    const shape = getNodeShape(node.shape);
+    if (shape.id !== 'circle') {
+      const outline = Array.from({ length: 48 }, (_, index) => {
+        const angle = index * 2 * Math.PI / 48;
+        const offset = rotateOffset(node, Math.cos(angle) * node.radius * shape.scaleX * 1.25,
+          Math.sin(angle) * node.radius * shape.scaleY * 1.25);
+        return { x: node.x + offset.x, y: node.y + offset.y };
+      });
+      for (let index = 0; index < outline.length && polygon.length; index++) {
+        const a = outline[index];
+        const b = outline[(index + 1) % outline.length];
+        const nx = b.y - a.y;
+        const ny = a.x - b.x;
+        polygon = clipHalfPlane(polygon, nx, ny, nx * a.x + ny * a.y);
+      }
     }
     return { id: node.id, type: node.type, points: polygon };
   });

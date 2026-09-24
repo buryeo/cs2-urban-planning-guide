@@ -66,7 +66,7 @@ export function getNodeType(type) {
 }
 
 export function makeDefaultNodes() {
-  return DEFAULT_NODES.map(([id, type, x, y, radius]) => ({ id, type, x, y, radius, locked: false }));
+  return DEFAULT_NODES.map(([id, type, x, y, radius]) => ({ id, type, x, y, radius, shape: 'circle', angle: 0, locked: false }));
 }
 
 export function moveNode(nodes, id, x, y) {
@@ -77,7 +77,7 @@ export function moveNode(nodes, id, x, y) {
 
 export function resizeNode(nodes, id, radius) {
   return nodes.map((node) => node.id === id && !node.locked
-    ? { ...node, radius: clamp(Math.round(radius), 28, 88) }
+    ? { ...node, radius: clamp(Math.round(radius), 16, 88) }
     : node);
 }
 
