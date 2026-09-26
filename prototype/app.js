@@ -6,8 +6,8 @@ import {
 import { makeDistricts, makeDistrictSubareas, polygonContains } from './districts.js';
 import { makeWaterPolygons, polygonPath } from './terrain.js';
 import { fitHeightmap, readPngHeader, validateHeightmap, validateTerrainPreview } from './heightmap.js';
-import { TERRAIN_RECT, isWaterColor, nearestLandPoint, placeTerrainNodes, terrainConnections } from './terrain-plan.js?v=6';
-import { designTerrainRoute, findTightTurns } from './terrain-routes.js?v=5';
+import { TERRAIN_RECT, isWaterColor, nearestLandPoint, placeTerrainNodes, terrainConnections } from './terrain-plan.js?v=10';
+import { designTerrainRoute, findTightTurns } from './terrain-routes.js?v=7';
 import { makeTerrainDistricts, terrainDistrictAt } from './terrain-districts.js';
 import { clampWindPosition } from './wind-marker.js';
 import { NODE_SHAPES, getNodeShape, nodeAngle, rotateOffset, shapeDistance } from './node-shapes.js';
@@ -160,7 +160,7 @@ function updateHeightmapView() {
       '查看旧金山湾地形与水陆轮廓；风向是可调整的规划假设。',
       '拖动节点放置中心；可在右侧更换形状，节点会贴附到地形图上的陆地。',
       '片区沿可开发陆地和节点形状扩展；水域、陡坡和远离中心的山地留白。',
-      '切换较短或缓坡候选，拖动蓝色必经点；橙点标出局部急弯。',
+      '蓝色为候选桥梁，紫色虚线为候选隧道；可比较陆地绕行与工程捷径。',
       '街区道路只作几何预览，实际走线须结合坡度与既有路网。',
     ];
     $('mapHint').textContent = terrainPlanningActive() ? (planningOverlayVisible ? terrainHints[state.stage] : '当前只显示地形；点击“显示规划图层”继续编辑。') : '高程图预览；这份外部地图尚未生成规划图层。';
@@ -393,13 +393,16 @@ function drawMap() {
   $('corridorLayer').innerHTML = state.stage >= 3
     ? state.corridors.map((corridor) => {
       const d = pathForCorridor(corridor);
-      const classes = `corridor${corridor.kind ? ` terrain-${corridor.kind}` : ''}${corridor.locked ? ' locked' : ''}${state.selectedCorridorId === corridor.id ? ' selected' : ''}`;
+      const classes = `corridor${corridor.kind ? ` terrain-${corridor.kind}` : ''}${corridor.role === 'alternate' ? ' alternate' : ''}${corridor.role === 'provisional' ? ' provisional' : ''}${corridor.locked ? ' locked' : ''}${state.selectedCorridorId === corridor.id ? ' selected' : ''}`;
       const bridge = corridor.bridgeSegment ? (() => {
         const a = corridor.points[corridor.bridgeSegment[0]];
         const b = corridor.points[corridor.bridgeSegment[1]];
         return `<line class="bridge-bed" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/><line class="bridge-deck" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`;
       })() : '';
-      return `<g data-corridor="${escapeText(corridor.id)}"><path class="${classes}" d="${d}"/>${bridge}<path class="corridor-hit" d="${d}"/></g>`;
+      const structures = (corridor.structures ?? []).map((part) =>
+        `<line class="structure-bed" x1="${part.from.x}" y1="${part.from.y}" x2="${part.to.x}" y2="${part.to.y}"/>` +
+        `<line class="structure-${part.kind}" x1="${part.from.x}" y1="${part.from.y}" x2="${part.to.x}" y2="${part.to.y}"><title>${part.kind === 'bridge' ? '候选桥梁' : '候选隧道'} · 尚未工程校核</title></line>`).join('');
+      return `<g data-corridor="${escapeText(corridor.id)}"><path class="${classes}" d="${d}"/>${bridge}${structures}<path class="corridor-hit" d="${d}"/></g>`;
     }).join('')
     : '';
   if (state.stage === 3 && terrainPlanningActive() && state.routeEdits[state.selectedCorridorId]?.via) {
@@ -436,7 +439,7 @@ function drawMap() {
         : `<g class="district-marker${selected ? ' selected' : ''}" data-node="${escapeText(node.id)}"><circle cx="${node.x}" cy="${node.y}" r="8" fill="${type.color}"/><circle class="marker-hit" cx="${node.x}" cy="${node.y}" r="19"/></g>`;
     }).join('')
     : '';
-  $('mapHint').textContent = terrainPlanningActive() ? (state.stage === 2 ? '片区顺可开发的陆地延伸；水域、陡坡与离节点过远的山地留白。风向标可拖到空白处。' : state.stage === 3 ? '切换较短或缓坡候选，拖动蓝色必经点；橙点标出局部急弯。' : `${stageCopy[state.stage].hint} 地形图有真实水陆轮廓，走廊与街线仍是候选草案。`) : `${stageCopy[state.stage].hint}${state.stage === 2 ? ' 风向标可拖到空白处。' : ''}`;
+  $('mapHint').textContent = terrainPlanningActive() ? (state.stage === 2 ? '片区顺可开发的陆地延伸；水域、陡坡与离节点过远的山地留白。风向标可拖到空白处。' : state.stage === 3 ? '蓝色为候选桥梁，紫色虚线为候选隧道；可切换陆地绕行与工程捷径。' : `${stageCopy[state.stage].hint} 地形图有真实水陆轮廓，走廊与街线仍是候选草案。`) : `${stageCopy[state.stage].hint}${state.stage === 2 ? ' 风向标可拖到空白处。' : ''}`;
 }
 
 function describeNode(id) {
@@ -462,29 +465,36 @@ function describeCorridor() {
   const end = state.nodes.find((node) => node.id === corridor.to);
   const startName = start ? nodeShortLabel(start) : corridor.from;
   const endName = end ? nodeShortLabel(end) : corridor.to;
-  const details = terrainPlanningActive() ? '候选线沿连续、较平缓的陆地寻找通道；水域和陡坡被排除。它仍需结合既有道路、详细坡度与工程条件校核。'
+  const structureSummary = (corridor.structures ?? []).map((part) => part.kind === 'bridge' ? '短桥' : '短隧道').join('、');
+  const details = terrainPlanningActive() ? `${corridor.purpose ?? '主要中心之间的基础联系'}。${structureSummary ? `包含${structureSummary}的工程捷径候选；桥位、净空和隧道条件尚未核实。` : '候选线沿连续、较平缓的陆地寻找通道；仍需结合既有道路、坡度和工程条件校核。'}`
     : corridor.bridgeSegment
     ? '这条连接跨越主河道。原型将跨河位置收束到候选桥位，避免每条道路各建一座桥。'
     : '两端位于同一侧，先以一条连续走廊连接，之后再细化道路等级与转弯。';
   const list = state.corridors.map((item) => {
     const a = state.nodes.find((node) => node.id === item.from);
     const b = state.nodes.find((node) => node.id === item.to);
-    return `<button type="button" class="corridor-item${item.id === corridor.id ? ' active' : ''}" data-select-corridor="${escapeText(item.id)}"><span>${escapeText(a ? nodeShortLabel(a) : item.from)} → ${escapeText(b ? nodeShortLabel(b) : item.to)}</span>${item.locked ? '<b>锁定</b>' : ''}</button>`;
+    const role = item.role === 'alternate' ? '备选' : item.role === 'provisional' ? '待核' : item.kind === 'freight' ? '货运' : '主干';
+    const structureTag = item.structures?.some((part) => part.kind === 'bridge') ? '·桥'
+      : item.structures?.some((part) => part.kind === 'tunnel') ? '·隧' : '';
+    return `<button type="button" class="corridor-item${item.id === corridor.id ? ' active' : ''}" data-select-corridor="${escapeText(item.id)}"><span>${escapeText(a ? nodeShortLabel(a) : item.from)} → ${escapeText(b ? nodeShortLabel(b) : item.to)}</span><small>${role}${structureTag}</small>${item.locked ? '<b>锁定</b>' : ''}</button>`;
   }).join('');
   const edit = state.routeEdits[corridor.id] ?? {};
-  const modes = [['balanced', '均衡'], ['short', '较短'], ['gentle', '缓坡']];
-  const modeButtons = modes.map(([mode, label]) => '<button type="button" class="mini-button' + ((edit.mode ?? 'balanced') === mode ? ' active' : '') +
-    '" data-action="route-mode-' + mode + '" aria-pressed="' + String((edit.mode ?? 'balanced') === mode) + '">' + label + '</button>').join('');
+  const modes = [['balanced', '均衡'], ['short', '较短'], ['gentle', '缓坡'], ['engineering', '桥隧捷径']];
+  const activeMode = edit.mode ?? (corridor.structures?.length ? 'engineering' : 'balanced');
+  const modeButtons = modes.map(([mode, label]) => '<button type="button" class="mini-button' + (activeMode === mode ? ' active' : '') +
+    '" data-action="route-mode-' + mode + '" aria-pressed="' + String(activeMode === mode) + '"' +
+    (mode === 'engineering' && edit.via ? ' disabled title="先移除必经点"' : '') + '>' + label + '</button>').join('');
   const routeControls = terrainPlanningActive()
     ? '<div class="route-controls"><div class="field-label">走线偏好</div><div class="route-mode-list">' + modeButtons +
       '</div><div class="control-row"><button type="button" class="mini-button" data-action="' +
-      (edit.via ? 'remove-route-via' : 'add-route-via') + '">' +
-      (edit.via ? '移除必经点' : '＋ 添加必经点') + '</button></div>' +
+      (edit.via ? 'remove-route-via' : 'add-route-via') + '"' +
+      (!edit.via && corridor.structures?.length ? ' disabled title="先切换陆地走线"' : '') + '>' +
+      (edit.via ? '移除必经点' : corridor.structures?.length ? '工程段先切换陆地走线' : '＋ 添加必经点') + '</button></div>' +
       (edit.via ? '<p class="route-tip">拖动地图上的蓝色圆点；松开后按新必经点重算。</p>' : '') +
       (corridor.warning ? '<p class="route-warning" role="status">' + escapeText(corridor.warning) + '</p>' : '') +
       (corridor.tightTurns?.length ? '<p class="route-warning">图上橙色圆点提示 ' + corridor.tightTurns.length + ' 处局部急弯；这是几何提醒，尚未按道路等级校核半径。</p>' : '<p class="route-tip">当前线形未检出明显急弯；仍需按道路等级核对转弯半径。</p>') + '</div>'
     : '';
-  return `<div class="selection-label">当前走廊 / ${escapeText(corridor.id)}</div><div class="selection-title"><h3>${escapeText(startName)} → ${escapeText(endName)}</h3><span class="type-pill">${terrainPlanningActive() ? corridor.kind === 'freight' ? '货运支线' : '主干候选' : corridor.bridgeSegment ? '跨河' : '同岸'}</span></div><p class="selection-copy">${details}</p>${routeControls}<div class="control-row"><button type="button" class="mini-button" data-action="toggle-corridor-lock">${corridor.locked ? '解除锁定' : terrainPlanningActive() ? '保留连接关系' : '锁定这段走线'}</button></div><div class="corridor-list">${list}</div>`;
+  return `<div class="selection-label">当前走廊 / ${escapeText(corridor.id)}</div><div class="selection-title"><h3>${escapeText(startName)} → ${escapeText(endName)}</h3><span class="type-pill">${terrainPlanningActive() ? corridor.kind === 'freight' ? '货运支线' : corridor.role === 'alternate' ? '替代通路' : corridor.role === 'provisional' ? '待核连接' : '区域主干' : corridor.bridgeSegment ? '跨河' : '同岸'}</span></div><p class="selection-copy">${escapeText(details)}</p>${routeControls}<div class="control-row"><button type="button" class="mini-button" data-action="toggle-corridor-lock">${corridor.locked ? '解除锁定' : terrainPlanningActive() ? '保留连接关系' : '锁定这段走线'}</button></div><div class="corridor-list">${list}</div>`;
 }
 
 function terrainNodeAdvisories(node) {
@@ -508,7 +518,7 @@ function drawInspector() {
     '先观察旧金山湾真实地形、海岸与山地，再设定规划范围和假设风向。',
     '在地形图上直接拖动中心节点；新增节点和拖动节点会自动贴到陆地。',
     '片区从中心沿可开发陆地扩展；水域、陡坡和过远山地保持未规划。',
-    '比较较短、均衡和缓坡走线；拖动必经点调整通道，橙点提示局部急弯。',
+    '比较陆地绕行与短桥、短隧道候选；工程段会单独标记，拐弯过急仍会提示。',
     '预览中心周边的街区几何；坡度与既有路网仍需校核。',
   ];
   $('stageIntro').textContent = terrainPlanningActive() ? terrainIntro[state.stage] : copy.intro;
@@ -516,7 +526,7 @@ function drawInspector() {
     '高程数据可帮助识别海岸、平地与山地；单凭高程无法确定全年风向、可航行水道或真实资源。',
     '先比较中心到就业、公园和海岸的距离，再检查工业区是否处于所设风向的下风侧。',
     copy.learning,
-    '先确定中心之间的少量主干联系，再比较坡度与绕行；地形约束后的平滑线形仍要核对曲率。资源—工业另接货运支线，跨水桥位需要单独指定。',
+    '主干道可以跨越较窄水道或短距离穿山，但桥位、隧道地质和道路曲线都需要后续校核。地形图只能生成候选，不能证明工程可行。',
     '地形图提供水陆边界与可见的起伏。道路、桥梁和航道尚未经过坡度、水深或交通容量校核。',
   ];
   $('learningText').textContent = terrainPlanningActive() ? terrainLearning[state.stage] : copy.learning;
@@ -542,7 +552,7 @@ function drawInspector() {
     $('stepControls').innerHTML = `<div class="control-heading">片区边界</div><label class="field-label" for="districtRadius">${node ? escapeText(getNodeType(node.type).name) : '选中片区'}的影响范围 <strong id="districtRadiusValue">${node?.radius ?? 40}</strong></label><input id="districtRadius" class="range" type="range" min="16" max="88" step="1" value="${node?.radius ?? 40}" ${!node || node.locked ? 'disabled' : ''}><div class="control-card"><strong>边界会随节点调整</strong><p>${terrainPlanningActive() ? '片区按节点形状沿平缓陆地延伸，水域、陡坡和过远山地留白。点击色块、拖动中心或调整范围。' : '点击片区、调整形状或影响范围。虚线只表达规划关系，河流把陆上片区自然分开。'}</p></div>`;
   } else if (state.stage === 3) {
     $('selectionPanel').innerHTML = describeCorridor();
-    $('stepControls').innerHTML = `<div class="control-card"><strong>${terrainPlanningActive() ? `${state.corridors.length} 条候选主干与货运联系` : `${state.corridors.filter((item) => item.bridgeSegment).length} 条跨河联系`} · ${state.lockedCorridors.length} 条已保留</strong><p>${terrainPlanningActive() ? '先连主要中心，沿可通行陆地绕开水域和陡坡；未画出的跨水联系需要另选桥位。线位仍须核实既有路网与工程条件。' : '重算只改变未锁定走廊的候选桥位；移动节点时，已锁定走线保留中间控制点。'}</p>${terrainPlanningActive() ? '' : '<button type="button" class="mini-button" data-action="regenerate">↻ 重新生成走线</button>'}</div>`;
+    $('stepControls').innerHTML = `<div class="control-card"><strong>${terrainPlanningActive() ? `${state.corridors.filter((item) => item.role === 'primary').length} 条区域主干 · ${state.corridors.filter((item) => item.role === 'alternate').length} 条替代通路 · ${state.corridors.filter((item) => item.role === 'provisional').length} 条待核连接 · ${state.corridors.filter((item) => item.kind === 'freight').length} 条货运支线` : `${state.corridors.filter((item) => item.bridgeSegment).length} 条跨河联系`} · ${state.lockedCorridors.length} 条已保留</strong><p>${terrainPlanningActive() ? '蓝色与紫色段分别是候选桥梁、隧道；只允许较短跨越。可逐条比较陆地绕行，所有工程段都需人工校核。' : '重算只改变未锁定走廊的候选桥位；移动节点时，已锁定走线保留中间控制点。'}</p>${terrainPlanningActive() ? '' : '<button type="button" class="mini-button" data-action="regenerate">↻ 重新生成走线</button>'}</div>`;
   } else {
     const segmentCount = makeStreetSegments(state.nodes, state.density).length;
     $('selectionPanel').innerHTML = `<div class="selection-label">本轮预览</div><div class="selection-title"><h3>${segmentCount} 段局部街线</h3><span class="type-pill">示意</span></div><p class="selection-copy">不同节点周围的街道方向略有变化；河道会遮挡水上街线，主通道仍保留候选桥位。</p><div class="note-list"><div class="note">可返回步骤 02 移动节点，街区道路会跟着更新。</div><div class="note warn">这是几何预览，不代表已经满足游戏里的道路坡度、交通容量或建筑分区要求。</div></div>`;
@@ -611,7 +621,7 @@ function handleAction(action) {
     refreshCorridors();
   } else if (action.startsWith('route-mode-') && terrainPlanningActive()) {
     const mode = action.slice('route-mode-'.length);
-    if (['balanced', 'short', 'gentle'].includes(mode)) {
+    if (['balanced', 'short', 'gentle', 'engineering'].includes(mode)) {
       state.routeEdits[state.selectedCorridorId] = { ...state.routeEdits[state.selectedCorridorId], mode };
       refreshCorridors();
     }

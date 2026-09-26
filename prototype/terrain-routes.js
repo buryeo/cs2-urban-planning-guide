@@ -85,6 +85,7 @@ export function routeOnTerrain(terrain, start, end, options = {}) {
   const maxSnap = options.maxSnap ?? 20;
   const maxDetour = options.maxDetour ?? 1.8;
   const gradeWeight = options.gradeWeight ?? 8;
+  const clearanceWeight = options.clearanceWeight ?? 1.5;
   const { passable, grades } = prepare(terrain, metersPerCell, maxGrade);
   const source = nearestPassable(start, terrain, passable, originX, originY, mapSize, maxSnap);
   const target = nearestPassable(end, terrain, passable, originX, originY, mapSize, maxSnap);
@@ -106,7 +107,11 @@ export function routeOnTerrain(terrain, start, end, options = {}) {
       const next = ny * width + nx;
       if (!passable[next]) continue;
       if (dx && dy && (!passable[y * width + nx] || !passable[ny * width + x])) continue;
-      const cost = current.cost + Math.hypot(dx, dy) * (1 + gradeWeight * Math.max(grades[current.index], grades[next]));
+      const nearBarrier = [nx > 0 ? next - 1 : -1, nx + 1 < width ? next + 1 : -1,
+        ny > 0 ? next - width : -1, ny + 1 < height ? next + width : -1]
+        .filter((index) => index >= 0 && !passable[index]).length;
+      const cost = current.cost + Math.hypot(dx, dy) *
+        (1 + gradeWeight * Math.max(grades[current.index], grades[next]) + clearanceWeight * nearBarrier);
       if (cost >= costs[next] - 1e-7) continue;
       costs[next] = cost; previous[next] = current.index;
       heap.push({ index: next, cost, score: cost + Math.hypot(nx - targetX, ny - targetY) });
@@ -144,6 +149,47 @@ export function routeViaPoint(terrain, start, via, end, options = {}) {
   return first && second ? [...first, ...second.slice(1)] : null;
 }
 
+export function routeWithStructures(terrain, start, end, options = {}) {
+  const originX = options.originX ?? 200;
+  const originY = options.originY ?? 0;
+  const mapSize = options.mapSize ?? 700;
+  const { width, height, land } = terrain;
+  const { passable } = prepare(terrain, options.metersPerCell ?? 443, options.maxGrade ?? .18);
+  const distance = Math.hypot(end.x - start.x, end.y - start.y);
+  if (!distance) return null;
+  const samples = Math.ceil(distance / (mapSize / Math.max(width, height) / 2));
+  const at = (i) => ({ x: start.x + (end.x - start.x) * i / samples,
+    y: start.y + (end.y - start.y) * i / samples });
+  const classification = (point) => {
+    const x = Math.floor((point.x - originX) / mapSize * width);
+    const y = Math.floor((point.y - originY) / mapSize * height);
+    if (x < 0 || x >= width || y < 0 || y >= height) return 'outside';
+    const index = y * width + x;
+    return passable[index] ? null : land[index] ? 'tunnel' : 'bridge';
+  };
+  if (classification(start) || classification(end)) return null;
+  const structures = [];
+  let run = null;
+  for (let i = 1; i <= samples; i++) {
+    const kind = classification(at(i));
+    if (kind === 'outside') return null;
+    if (kind && run && kind !== run.kind) return null;
+    if (kind && !run) run = { kind, start: i - 1 };
+    if (!kind && run) {
+      const from = at(run.start);
+      const to = at(i);
+      const span = Math.hypot(to.x - from.x, to.y - from.y);
+      const limit = run.kind === 'bridge' ? options.maxBridge ?? 45 : options.maxTunnel ?? 70;
+      if (span > limit) return null;
+      structures.push({ kind: run.kind, from, to, span });
+      run = null;
+    }
+  }
+  if (!structures.length || structures.length > (options.maxStructures ?? 2)) return null;
+  if (structures.reduce((total, item) => total + item.span, 0) > (options.maxStructureTotal ?? 100)) return null;
+  return { points: [start, end], structures };
+}
+
 function segmentIsPassable(terrain, a, b, passable, options) {
   const originX = options.originX ?? 200;
   const originY = options.originY ?? 0;
@@ -156,6 +202,12 @@ function segmentIsPassable(terrain, a, b, passable, options) {
     const col = Math.floor((x - originX) / mapSize * terrain.width);
     const row = Math.floor((y - originY) / mapSize * terrain.height);
     if (col < 0 || row < 0 || col >= terrain.width || row >= terrain.height || !passable[row * terrain.width + col]) return false;
+    if (options.clearanceCells) {
+      for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+        const nx = col + dx; const ny = row + dy;
+        if (nx >= 0 && nx < terrain.width && ny >= 0 && ny < terrain.height && !passable[ny * terrain.width + nx]) return false;
+      }
+    }
   }
   return true;
 }
@@ -163,11 +215,12 @@ function segmentIsPassable(terrain, a, b, passable, options) {
 export function softenTerrainRoute(terrain, points, options = {}) {
   if (!terrain || points.length < 3) return points;
   const { passable } = prepare(terrain, options.metersPerCell ?? 443, options.maxGrade ?? .18);
+  const simplifyOptions = { ...options, clearanceCells: options.softenClearance ?? 1 };
   const simplified = [points[0]];
   for (let i = 0; i < points.length - 1;) {
     let next = i + 1;
     for (let j = Math.min(points.length - 1, i + 24); j > i + 1; j--) {
-      if (segmentIsPassable(terrain, points[i], points[j], passable, options)) { next = j; break; }
+      if (segmentIsPassable(terrain, points[i], points[j], passable, simplifyOptions)) { next = j; break; }
     }
     simplified.push(points[next]);
     i = next;
@@ -197,20 +250,28 @@ export function designTerrainRoute(terrain, corridor, nodes, edit = {}, options 
   const mode = edit.mode ?? 'balanced';
   const gradeWeight = { short: 0, balanced: 8, gentle: 32 }[mode] ?? 8;
   const routeOptions = { ...options, gradeWeight };
+  if (mode === 'engineering' && !edit.via) {
+    const candidate = routeWithStructures(terrain, from, to, options);
+    return candidate ? { ...corridor, ...candidate, warning: null }
+      : { ...corridor, warning: '两端之间没有符合长度限制的桥梁或隧道候选；仍显示原走线。' };
+  }
   const route = edit.via
     ? routeViaPoint(terrain, from, edit.via, to, routeOptions)
     : edit.mode ? routeOnTerrain(terrain, from, to, routeOptions) : corridor.points;
-  if (!route) return { ...corridor, warning: '此必经点无法沿连续缓坡陆地接通；仍显示原候选。' };
+  if (!route) return { ...corridor, warning: edit.via
+    ? '此必经点无法沿连续缓坡陆地接通；仍显示原候选。'
+    : '两端之间没有符合当前坡度和绕行限制的陆地线路；仍显示原候选。' };
   if (edit.via) {
     const split = route.findIndex((point) => point.x === edit.via.x && point.y === edit.via.y);
     if (split > 0 && split < route.length - 1) {
-      return { ...corridor, points: [
+      return { ...corridor, structures: [], points: [
         ...softenTerrainRoute(terrain, route.slice(0, split + 1), options),
         ...softenTerrainRoute(terrain, route.slice(split), options).slice(1),
       ], warning: null };
     }
   }
-  return { ...corridor, points: softenTerrainRoute(terrain, route, options), warning: null };
+  return { ...corridor, structures: edit.mode ? [] : corridor.structures ?? [],
+    points: softenTerrainRoute(terrain, route, options), warning: null };
 }
 
 export function findTightTurns(points, minRadius = 10) {

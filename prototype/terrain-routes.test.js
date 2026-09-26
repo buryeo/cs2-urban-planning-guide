@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { routeOnTerrain, routeViaPoint, softenTerrainRoute, designTerrainRoute, findTightTurns } from './terrain-routes.js';
+import { routeOnTerrain, routeViaPoint, routeWithStructures, softenTerrainRoute, designTerrainRoute, findTightTurns } from './terrain-routes.js';
 
 const grid = (width, height, blocked = () => false) => ({
   width, height,
@@ -22,6 +22,31 @@ test('terrain route uses a dry gap instead of drawing across water', () => {
 test('terrain route leaves disconnected shores without a road', () => {
   const terrain = grid(11, 9, (x) => x === 5);
   assert.equal(routeOnTerrain(terrain, { x: 2, y: 2 }, { x: 8, y: 2 }, { originX: 0, mapSize: 11 }), null);
+});
+
+test('a short water gap can become an explicitly marked bridge candidate', () => {
+  const terrain = grid(21, 21, (x) => x === 10);
+  const candidate = routeWithStructures(terrain, { x: 3, y: 10 }, { x: 17, y: 10 },
+    { originX: 0, mapSize: 21, maxBridge: 4 });
+  assert.ok(candidate);
+  assert.equal(candidate.structures.length, 1);
+  assert.equal(candidate.structures[0].kind, 'bridge');
+  assert.deepEqual(candidate.points, [{ x: 3, y: 10 }, { x: 17, y: 10 }]);
+});
+
+test('a water crossing longer than the bridge limit is rejected', () => {
+  const terrain = grid(21, 21, (x) => x >= 7 && x <= 13);
+  assert.equal(routeWithStructures(terrain, { x: 3, y: 10 }, { x: 17, y: 10 },
+    { originX: 0, mapSize: 21, maxBridge: 4 }), null);
+});
+
+test('a short impassable ridge can become an explicitly marked tunnel candidate', () => {
+  const terrain = grid(21, 21);
+  for (let y = 0; y < 21; y++) terrain.elevation[y * 21 + 10] = 100;
+  const candidate = routeWithStructures(terrain, { x: 3, y: 10 }, { x: 17, y: 10 },
+    { originX: 0, mapSize: 21, metersPerCell: 20, maxTunnel: 5 });
+  assert.ok(candidate);
+  assert.equal(candidate.structures[0].kind, 'tunnel');
 });
 
 test('gentle route avoids a steep but passable shortcut', () => {
@@ -72,6 +97,19 @@ test('flat-ground zigzags collapse into one clean alignment', () => {
   assert.ok(points.every((point) => Math.abs(point.y - 1) < .1));
 });
 
+test('a road around a broad water obstacle leaves room for a smoother turn', () => {
+  const terrain = grid(40, 40, (x, y) => x >= 12 && x <= 27 && y <= 22);
+  const settings = { originX: 0, mapSize: 40, maxDetour: 5 };
+  const raw = routeOnTerrain(terrain, { x: 5, y: 10 }, { x: 35, y: 10 },
+    { ...settings, clearanceWeight: 0 });
+  const spaced = routeOnTerrain(terrain, { x: 5, y: 10 }, { x: 35, y: 10 },
+    { ...settings, clearanceWeight: 3 });
+  const baseline = softenTerrainRoute(terrain, raw, settings);
+  const rounded = softenTerrainRoute(terrain, spaced, { ...settings, softenClearance: 1 });
+  assert.ok(findTightTurns(rounded).length < findTightTurns(baseline).length);
+  assert.ok(rounded.every((point) => !(point.x >= 12 && point.x < 28 && point.y <= 22)));
+});
+
 test('route design follows a waypoint while preserving connection endpoints', () => {
   const terrain = grid(11, 11);
   const corridor = { id: 'a-b', from: 'a', to: 'b', points: [{ x: 1, y: 1 }, { x: 9, y: 1 }] };
@@ -92,6 +130,30 @@ test('invalid waypoint keeps the previous safe route and explains why', () => {
   assert.ok(result.warning);
   assert.deepEqual(result.points[0], corridor.points[0]);
   assert.deepEqual(result.points.at(-1), corridor.points.at(-1));
+});
+
+test('switching a bridge candidate back to land routing clears its structure marker', () => {
+  const terrain = grid(21, 21, (x, y) => x === 10 && y < 12);
+  const nodes = [{ id: 'a', x: 3, y: 10 }, { id: 'b', x: 17, y: 10 }];
+  const corridor = { id: 'a-b', from: 'a', to: 'b', points: [nodes[0], nodes[1]],
+    structures: [{ kind: 'bridge', from: { x: 9, y: 10 }, to: { x: 11, y: 10 }, span: 2 }] };
+  const result = designTerrainRoute(terrain, corridor, nodes, { mode: 'balanced' },
+    { originX: 0, mapSize: 21, maxDetour: 3 });
+  assert.equal(result.warning, null);
+  assert.deepEqual(result.structures, []);
+  assert.ok(result.points.some((point) => point.y >= 12));
+});
+
+test('engineering mode marks a short tunnel and preserves a straight alignment', () => {
+  const terrain = grid(21, 21);
+  for (let y = 0; y < 21; y++) terrain.elevation[y * 21 + 10] = 100;
+  const nodes = [{ id: 'a', x: 3, y: 10 }, { id: 'b', x: 17, y: 10 }];
+  const corridor = { id: 'a-b', from: 'a', to: 'b', points: [nodes[0], nodes[1]], structures: [] };
+  const result = designTerrainRoute(terrain, corridor, nodes, { mode: 'engineering' },
+    { originX: 0, mapSize: 21, metersPerCell: 20 });
+  assert.equal(result.warning, null);
+  assert.equal(result.structures[0].kind, 'tunnel');
+  assert.deepEqual(result.points, [nodes[0], nodes[1]]);
 });
 
 test('bend hints flag an abrupt turn but not a straight corridor', () => {

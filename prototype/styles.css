@@ -92,8 +92,14 @@ body.map-focus-active{overflow:hidden}
 .shape-field{margin-top:11px}
 .shape-angle-label{margin-top:10px}
 .terrain-planning .corridor.terrain-main{stroke:#9b553b;stroke-width:4;stroke-dasharray:none;stroke-linecap:round;stroke-linejoin:round}
+.terrain-planning .corridor.terrain-main.alternate{stroke:#5e817b;stroke-width:3;stroke-dasharray:7 5}
+.terrain-planning .corridor.terrain-main.provisional{stroke:#788b89;stroke-width:2.4;stroke-dasharray:3 6}
 .terrain-planning .corridor.terrain-freight{stroke:#6f6854;stroke-width:3;stroke-dasharray:7 5;stroke-linecap:round;stroke-linejoin:round}
 .terrain-planning .corridor.terrain-main.selected,.terrain-planning .corridor.terrain-freight.selected{stroke:#dc7349;stroke-width:5.5}
+.structure-bed{stroke:#f6f6eb;stroke-width:9;stroke-linecap:round;pointer-events:none}
+.structure-bridge{stroke:#287a9a;stroke-width:5;stroke-linecap:round;pointer-events:none}
+.structure-tunnel{stroke:#5b5578;stroke-width:5;stroke-dasharray:7 4;stroke-linecap:round;pointer-events:none}
+.corridor-item small{margin-left:auto;font-size:9px;color:#698078;white-space:nowrap}
 .route-controls{margin:12px 0;padding:10px;border:1px solid #d9e3dc;border-radius:9px;background:#f7faf6}
 .route-mode-list{display:flex;gap:5px;margin:7px 0}
 .route-mode-list .mini-button{flex:1;padding:7px 3px}

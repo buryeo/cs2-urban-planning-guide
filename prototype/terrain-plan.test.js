@@ -34,11 +34,11 @@ test('terrain corridors only connect the current centers and make no invented br
   assert.ok(corridors.length > 0);
   assert.ok(corridors.every((corridor) => corridor.bridgeSegment === null));
   assert.ok(corridors.every((corridor) => corridor.points[0].x === nodes.find((node) => node.id === corridor.from).x));
-  assert.ok(corridors.length <= 6, 'the main-road preview is a sparse backbone');
+  assert.ok(corridors.length <= 7, 'the preview keeps a sparse backbone with at most one alternate road');
   assert.ok(corridors.every((corridor) => !['park', 'residential', 'tourism'].includes(nodes.find((node) => node.id === corridor.from).type)));
 });
 
-test('terrain backbone separates shores when no crossing is identified', () => {
+test('terrain backbone marks a short cross-water connection as a bridge candidate', () => {
   const terrain = { width: 21, height: 11,
     land: Uint8Array.from({ length: 231 }, (_, i) => i % 21 === 10 ? 0 : 1),
     elevation: new Float32Array(231) };
@@ -49,6 +49,47 @@ test('terrain backbone separates shores when no crossing is identified', () => {
     { id: 'seaHub', type: 'seaHub', x: 18, y: 4 },
   ];
   const corridors = terrainConnections(nodes, [], [], terrain, { originX: 0, mapSize: 21, maxDetour: 3 });
-  assert.equal(corridors.length, 2);
-  assert.ok(corridors.every((corridor) => corridor.points.every((point) => point.x !== 10)));
+  assert.ok(corridors.some((corridor) => corridor.structures?.some((part) => part.kind === 'bridge')));
+  assert.ok(corridors.every((corridor) => corridor.structures?.every((part) => part.span <= 45)));
+});
+
+test('terrain corridors favor useful center relationships and add one short alternate connection', () => {
+  const nodes = [
+    { id: 'landHub', type: 'landHub', x: 0, y: 0 },
+    { id: 'cbd', type: 'cbd', x: 10, y: 0 },
+    { id: 'university', type: 'university', x: 10, y: 10 },
+    { id: 'airHub', type: 'airHub', x: 20, y: 0 },
+    { id: 'industry', type: 'industry', x: 0, y: 10 },
+    { id: 'seaHub', type: 'seaHub', x: -10, y: 10 },
+    { id: 'resource', type: 'resource', x: -3, y: 13 },
+  ];
+  const corridors = terrainConnections(nodes);
+  const pair = (a, b) => corridors.find((item) => [item.from, item.to].sort().join(':') === [a, b].sort().join(':'));
+  for (const [a, b] of [['landHub', 'cbd'], ['industry', 'seaHub'], ['industry', 'landHub'], ['cbd', 'airHub'], ['cbd', 'university']]) {
+    assert.ok(pair(a, b), `${a}–${b} should be connected`);
+    assert.equal(pair(a, b).role, 'primary');
+    assert.ok(pair(a, b).purpose);
+  }
+  assert.equal(pair('landHub', 'university')?.role, 'alternate');
+  assert.equal(pair('industry', 'resource')?.kind, 'freight');
+});
+
+test('locked relationship is retained when the new connection policy recomputes', () => {
+  const nodes = [
+    { id: 'cbd', type: 'cbd', x: 0, y: 0 },
+    { id: 'landHub', type: 'landHub', x: 10, y: 0 },
+    { id: 'airHub', type: 'airHub', x: 20, y: 0 },
+  ];
+  const corridors = terrainConnections(nodes, [], ['cbd-airHub']);
+  assert.equal(corridors.find((item) => item.id === 'cbd-airHub')?.locked, true);
+});
+
+test('a fallback link between unrelated centers is marked for manual review', () => {
+  const nodes = [
+    { id: 'industry', type: 'industry', x: 0, y: 0 },
+    { id: 'university', type: 'university', x: 10, y: 0 },
+  ];
+  const [corridor] = terrainConnections(nodes);
+  assert.equal(corridor.role, 'provisional');
+  assert.match(corridor.purpose, /人工复核/);
 });
